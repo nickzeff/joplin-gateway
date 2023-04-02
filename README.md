@@ -15,7 +15,7 @@ The key changes are:
 - The base image has been updated to a more recent version, and so have the included packages (such as getmail). 
 - Code has been refactored to suit being containerised. It is strongly recommended to run everything as a container, since I have not substantially tested it as standalone code.
 - The system now supports a scheduled filescan of a "hot folder" and a pop request to a provider of your choice. Cron has been set up for checks every minute, but locks are in place to prevent overlapping scripts
-- Bash limitations throwing errors when building longer notes have been overcome by making changes offline in the filesystem rather than through string expansion. 
+- Bash limitations throwing errors when building longer notes have been overcome by making changes outside Joplin in the filesystem rather than through string expansion. 
 
 ## First Run
 
