@@ -1,141 +1,134 @@
-# joplin-mail-gateway
+# joplin-gateway
 
-Simple (bash-based) mail gateway for the open source note taking and to-do application
+## Overview
+Simple (bash-based) mail gateway and file scan for the open source note taking and to-do application
 [Joplin](https://joplin.cozic.net/).
 
-## Rationale
+It is **significantly** based on the original joplin-mail-gateway here: https://github.com/manolitto/joplin-mail-gateway. Many thanks should be directed to manolitto for investing the time to build the original version.
 
-This tool provides a solution for emailing content directly into your Joplin notes.
+I have pre-built an (admittedly sizeable) image which runs on arm64 architectures, so you can run it on your raspberry pi (like I do). Grab [nickzeff/joplin-gateway:latest](https://hub.docker.com/repository/docker/nickzeff/joplin-gateway/general) from docker hub.
 
-You may send or forward an email to a dedicated email address. This email is then
-automatically delivered to your personal Joplin notes. Attachments (PDFs, Images, ...)
-will automatically be included in the note. In addition text is automatically
-scanned from images via OCR. This extracted text is added at the bottom of the note so
-that it is easily searchable in Joplin. 
+## Major Changes
 
-## Features
+The key changes are:
 
-- automatically fetch mails from a certain mail account and add all new mails as Joplin notes
-- automatically add mail attachments
-- provide tags via mail subject (with #-syntax)
-- choose notebook via mail subject (with @-syntax)
-- automatically run OCR on images and add text to bottom of note
-- automatically add png thumbnails for PDF attachments
-- automatically add PDF text part to bottom of note
+- The base image has been updated to a more recent version, and so have the included packages (such as getmail). 
+- Code has been refactored to suit being containerised. It is strongly recommended to run everything as a container, since I have not substantially tested it as standalone code.
+- The system now supports a scheduled filescan of a "hot folder" and a pop request to a provider of your choice. Cron has been set up for checks every minute, but locks are in place to prevent overlapping scripts
+- Bash limitations throwing errors when building longer notes have been overcome by making changes offline in the filesystem rather than through string expansion. 
 
-## Prerequisites
+## First Run
 
-1. [**Joplin**](https://joplin.cozic.net/) terminal application installed and configured
+I use a combination of docker-compose and Portainer as my image and container managers of choice. In order to ensure you have persistence in regards to configuration and content storage, you should ensure you have appropriate volumes mapped. To illustrate this, here is the relevant section of my docker-compose.yml.
 
-    see https://joplin.cozic.net/
+```
+  joplin-gateway:
+    image: nickzeff/joplin-gateway:latest
+    container_name: joplin-gateway
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=Asia/Singapore
+    volumes:
+      - /path/to/config-dir:/home/node/.config
+      - /path/to/hot-folder:/home/node/joplin-file-scan
+    ports:
+      - 8967:8967
+      - 9967:9967
+    restart: unless-stopped
+```
 
-    Tested with `joplin 1.0.119 (prod)`
+Here are some notes on the above:
 
-2. [**pdftoppm**](https://poppler.freedesktop.org/) and [**pdftotext**](https://poppler.freedesktop.org/) must be installed
+- If you have mapped directories to your host as above and your config directory does not contain anything, a scheduled script will create initial versions of global config, Joplin config and getmail config for you. You will still need to edit these to get everything to work (see below).
+- Those ports only need to be exposed if you are syncing via OneDrive (which I was previously). The initial sync requires you to browse to an auth page served by the Joplin app, which then enables you to link your OneDrive account. I had way too many problems with OneDrive sync, but this info may help you.
 
-        sudo apt update
-        sudo apt install poppler-utils
+## Global Config
 
-    Tested with `pdftoppm 3.03` and `pdftotext 3.03`    
+Head into the config folder you mapped and update as per guidance below.
 
-4. [**tesseract**](https://github.com/tesseract-ocr/tesseract) must be installed
+You can find the global config in _config-defaults.sh_
 
-        sudo apt update
-        sudo apt-get install tesseract-ocr
-        
-    And for German training files:
-     
-        sudo apt-get install tesseract-ocr-deu 
+Some of these will be familiar if you have used the original [joplin-mail-gateway](https://joplin.cozic.net/). Hopefully most of the config is self-explanatory, but as an extra bit of info see below.
 
-    Tested with `tesseract 3.04.01`
+```
+DEFAULT_TITLE_PREFIX="New Note"
+DEFAULT_NOTEBOOK="Inbox"
 
-5. [**getmail**](http://pyropus.ca/software/getmail/) must be installed 
+# Whether to create the default notebook if it doesn't exist. 
+AUTO_CREATE_NOTEBOOK=false 
 
-        sudo apt-get update
-        sudo apt-get install getmail4
+# Seconds until mail or file lock expires 
+LOCKFILE_DURATION=600
 
-    Tested with `getmail_fetch 4.48.0`
+# Maximum number of thumbnails to generate from a PDF. Set to a very high number if you really like lots of thumbnails (I don't). Value of 0 means no thumbnails.
+MAX_THUMBNAILS=1
 
-6. [**ripmime**](https://github.com/inflex/ripMIME) must be installed
+# ---------- Advanced Configuration ------
 
-        sudo apt-get update
-        sudo apt install ripmime
+# Please don't change this. I will probably hide it in the next version
+TEMP_APPEND_FILE="/tmp/jg-temporary-content"
+```
 
-    Tested with `ripmime v1.4.0.9`
+**Process Locks**
 
-7. [**python 3**](https://www.python.org/) must be installed
+Regarding process locks. Separately from the joplin sync lock, I have also built in separate locks for the mail poll and the file scan scripts respectively. This is quite handy, since you have have checks every minute for new stuff to import, but still avoid having multiple scripts overlapping and causing chaos if the import process is taking a while.
 
-        sudo apt-get update
-        sudo apt install python3
+If everything is working correctly, a lock is generated if the scripts find anything to import. It is automatically cleared once the import is complete (the import includes the Joplin after the import).
 
-    Tested with `python3 3.5.2`.
-    
-    Note: If you are running Ubuntu 20.04.1 LTS, make sure to set Python3 
-    as the default interpreter:
+However, in case the script falling over before it gets a chance to remove the lock, the lock automatically expires LOCK_DURATION seconds after the lock was initially created.
 
-        sudo update-alternatives --install /usr/bin/python python /usr/bin/python3 10                    
-     
+## Joplin config
 
-## Install
+You should go into _./joplin/joplin-config.json_ and update the relevant items for your sync.
 
-1. Clone from github
+An explanation of the config is outside the scope of this README, and you can read the [official documentation](https://joplinapp.org/terminal/#commands) (look under the config command for a list of settings you can potentially edit or insert into the json).
 
-        git clone https://github.com/manolitto/joplin-mail-gateway.git
-        
-2. Create a mail directory for incoming mails with following structure:
+I would generally recommend you touch as little as possible in this file if everything is working, but the following is required for sync to work:
 
-        mkdir -p ~/joplin-mailbox/new
-        mkdir -p ~/joplin-mailbox/cur
-        mkdir -p ~/joplin-mailbox/tmp
+| Configuration Key | Notes |
+| --- | --- |
+| sync.target       | This is the key one for you to update and defines where your sync target is. Read the Joplin config for more information. You will need to update this and potentially add one or more key/value pairs which help define usernames and passwords for your chosen cloud. <br> <br>For example, I use<br><br>sync.target = 10 (Joplin Cloud)<br>sync.10.username = < my Joplin Cloud username ><br>sync.10.password = < my Joplin Cloud password>|
 
-3. Create a log directory
+The following is for your information only:
 
-        sudo mkdir /var/log/fetch-joplin-mails
-        sudo chown $USER /var/log/fetch-joplin-mails
-        
-4. Create a new mail account at your preferred email provider that supports POP3
-        
-5. Create the configuration file
-        
-        cp config-sample.sh config.sh
-        chmod 700 config.sh 
-        
-5. Change default configuration by editing `config.sh`
+| Configuration Key | Notes |
+| --- | --- |
+| editor | Do not change this value, or you will experience unexpected behaviours when running the scripts |
+| sync.wipeOutFailSafe | Strongly recommend keeping this as true, to prevent potential data loss |
+| sync.resourceDownloadMode | This is an undocumented setting which is used by the desktop application and I have made use of it here, with a value of _auto_. This seems to work for the terminal app, namely preventing it from downloading images and other attachments. This saves you quite a bit of disk space. |
 
-        readonly POP3_USER="your-email-user@your-provider"
-        readonly POP3_PW="your-super-secret-pop3-pw"
-        readonly POP3_HOST="pop.gmail.com"
-        readonly POP3_PORT=995
-        readonly DEFAULT_TITLE_PREFIX="Neue Notiz"
-        readonly DEFAULT_NOTEBOOK="Import"
+## Getmail config
 
-7. Test your configuration
-        
-        ./fetch-joplin-mails.sh  
-        
-8. Add cron job
+Due to an annoying bug with getmail which seems to have been around for a while, the original approach manolitto used for calling getmail does not work. Even more recent versions available through backport repos do not work. What this means is that configuration of getmail is now done through the separate file _./getmail/getmailrc_
 
-        crontab -e
+The key things to update are of course
 
-    Add the following line:
+```
+[retriever]
+type = SimplePOP3SSLRetriever
+server = pop.gmail.com
+username = username-goes-here
+password = password-goes-here
+port = 995
+```
 
-        */5 * * * * ~/joplin-mail-gateway/fetch-joplin-mails.sh >>/var/log/fetch-joplin-mails/fetch.log 2>&1           
+Careful to preserve the spaces around the "=" signs. Seems to be picky.
 
-## Running from a docker container
+You can check out some of the other settings while you're in here, including options to throttle the mail checks via _max_messages_per_session_ or delete emails after downloading via _delete_.
 
-The gateway can be run from a docker container. The included Dockerfile does everything from installing joplin to 
-fetching emails
+**A note on gmail**
 
-To setup the docker container :
+Google doesn't really like a non-MFA, single factor authentication approach to POPping its mail server. It has a point. I personally set up a separate, dedicated gmail account to be my gateway. You should [check out Google's docco here](https://support.google.com/accounts/answer/6010255?fl=1) if you're getting authentication errors, even if you added your correct username and password.
 
-1. prepare the mail-gateway by editing the `config.sh` file as described above
+## Troubleshooting
 
-2. edit the `joplin-config.json` file with your Joplin sync settings. Template files are availables. Simple remove the `.template` extension
+I will try to expand this section if required, but if you are experiencing difficulties, here are some extra hints.
 
-3. build the container by running
+- Most information relating to the mail and file scan activities can be found in scan.log which is surfaced by the container as the main CMD. This means you should be able to see issues if you go to the container log in Portainer, for example.
+- If you are having issues with locks (whether Joplin sync lock, mail poll lock or file scan lock) then you can always head into the container via the console and remove the lock files in _\tmp_. Caution is advised. Sometimes these things just take time.
 
-        docker build . -t joplin_gateway
+## Todo
 
-4. run the container
-
-        docker run -d joplin_gateway
+- Provide better documentation
+- Slim down the image - currently way too large at >800MB!
