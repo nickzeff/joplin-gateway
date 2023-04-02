@@ -19,7 +19,9 @@ The key changes are:
 
 ## First Run
 
-I use a combination of docker-compose and Portainer as my image and container managers of choice. In order to ensure you have persistence in regards to configuration and content storage, you should ensure you have appropriate volumes mapped. To illustrate this, here is the relevant section of my docker-compose.yml.
+I use a combination of docker-compose and Portainer for my "production" image/container administration. I make reference to these below, but please adapt to your toolset of choice.
+
+In order to ensure you have persistence in regards to configuration and content storage, you should ensure you have appropriate volumes mapped. To illustrate this, here is the relevant section of my _docker-compose.yml_.
 
 ```
   joplin-gateway:
@@ -41,6 +43,7 @@ I use a combination of docker-compose and Portainer as my image and container ma
 Here are some notes on the above:
 
 - If you have mapped directories to your host as above and your config directory does not contain anything, a scheduled script will create initial versions of global config, Joplin config and getmail config for you. You will still need to edit these to get everything to work (see below).
+- For my hot folder, I mapped a location on my local server which syncs with a directory on my OneDrive. What this ultimately means is that I can "send" files from other applications to a specific folder on my OneDrive and they will be imported into Joplin. Handy for mobile apps which support this function.  
 - Those ports only need to be exposed if you are syncing via OneDrive (which I was previously). The initial sync requires you to browse to an auth page served by the Joplin app, which then enables you to link your OneDrive account. I had way too many problems with OneDrive sync, but this info may help you.
 
 ## Global Config
@@ -102,7 +105,7 @@ The following is for your information only:
 
 Due to an annoying bug with getmail which seems to have been around for a while, the original approach manolitto used for calling getmail does not work. Even more recent versions available through backport repos do not work. What this means is that configuration of getmail is now done through the separate file _./getmail/getmailrc_
 
-The key things to update are of course
+You can of course [wade through the extensive getmail documentation](https://getmail6.org/configuration.html#rcfile) to learn more, but the key section to update is of course
 
 ```
 [retriever]
@@ -119,7 +122,7 @@ You can check out some of the other settings while you're in here, including opt
 
 **A note on gmail**
 
-Google doesn't really like a non-MFA, single factor authentication approach to POPping its mail server. It has a point. I personally set up a separate, dedicated gmail account to be my gateway. You should [check out Google's docco here](https://support.google.com/accounts/answer/6010255?fl=1) if you're getting authentication errors, even if you added your correct username and password.
+Google doesn't really like this non-MFA, single factor authentication approach to POPping its mail server. It has a point. I personally set up a separate, dedicated gmail account to be my gateway. You should [check out Google's related FAQ here](https://support.google.com/accounts/answer/6010255?fl=1) if you're getting authentication errors, even if you added your correct username and password.
 
 ## Troubleshooting
 
