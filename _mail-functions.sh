@@ -32,6 +32,10 @@ function getNotebookFromSubject {
 ## Usage: fetchMails user password mail-dir
 #---
 function fetchMails {
-    echo "Fetching mails"
-    getmail_fetch ${GETMAIL_OPTS} -p ${POP3_PORT} ${POP3_HOST} "$1" "$2" "$3"
+    echo "$LOG_PREFIX Fetching mails"
+    
+    # This is the old command, which should work, but due to an annoying bug does not
+    #getmail_fetch ${GETMAIL_OPTS} -p ${POP3_PORT} ${POP3_HOST} "$1" "$2" "$3"
+
+    getmail --rcfile=/home/node/.config/getmail/getmailrc --getmaildir=/home/node/.config/getmail
 }

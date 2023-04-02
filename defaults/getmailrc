@@ -1,0 +1,29 @@
+[retriever]
+type = SimplePOP3SSLRetriever
+server = pop.gmail.com
+username = username-goes-here
+password = password-goes-here
+port = 995
+
+[destination]
+type = Maildir
+path = /home/node/joplin-mailbox/
+
+#[options]
+[options]
+# only download *new* emails
+read_all = false
+
+# do not alter status of emails on server
+delivered_to = false
+
+# ditto
+received = false
+
+# do not delete emails on server
+delete = false
+
+# max downloaded each time; use 0 for no limit
+max_messages_per_session = 5
+
+message_log = /home/node/.config/getmail/log

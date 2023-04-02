@@ -8,14 +8,14 @@ function switchToNotebook {
     joplin use "$1"
     if [[ $? -ne 0 ]] ; then
         if [[ "$AUTO_CREATE_NOTEBOOK" == "true" ]]; then
-            echo "Info: notebook $1 not found - creating automatically"
+            echo "$LOG_PREFIX Info: notebook $1 not found - creating automatically"
             joplin mkbook "$1"
             joplin use "$1"
         else
-            echo "Warning: notebook $1 not found - using default $DEFAULT_NOTEBOOK instead"
+            echo "$LOG_PREFIX Warning: notebook $1 not found - using default $DEFAULT_NOTEBOOK instead"
             joplin use "$DEFAULT_NOTEBOOK"
             if [[ $? -ne 0 ]] ; then
-                echo "Error: default notebook $DEFAULT_NOTEBOOK not found - creating automatically"
+                echo "$LOG_PREFIX Error: default notebook $DEFAULT_NOTEBOOK not found - creating automatically"
                 joplin mkbook "$DEFAULT_NOTEBOOK"
                 joplin use "$DEFAULT_NOTEBOOK"
             fi
@@ -42,7 +42,7 @@ function setNoteTitle {
     if [[ "${TITLE}x" == "x" ]] ; then
         TITLE="${DEFAULT_TITLE_PREFIX} - `date`"
     fi
-    echo "Set title to: $TITLE"
+    echo "$LOG_PREFIX Set title to: $TITLE"
     joplin set "$1" title "$TITLE"
 }
 
@@ -51,7 +51,7 @@ function setNoteTitle {
 #---
 function setNoteTags {
     for T in $2 ; do
-        echo "Add tag: $T"
+        echo "$LOG_PREFIX Add tag: $T"
         joplin tag add "$T" "$1"
     done
 }
@@ -105,7 +105,7 @@ function getNoteBodyFromTextParts {
 #---
 function setNoteBodyFromTextParts {
     local BODY=`getNoteBodyFromTextParts "${2}"`
-    echo "Setting body"
+    echo "$LOG_PREFIX Setting body"
     joplin set "$1" body "$BODY"
 }
 
@@ -113,7 +113,7 @@ function setNoteBodyFromTextParts {
 ## Usage: attachFile note-id file
 #---
 function attachFile {
-	echo "Attach file `basename "$2"`"
+	echo "$LOG_PREFIX Attach file `basename "$2"`"
 	joplin attach "$1" "$2"
 }
 
@@ -121,21 +121,26 @@ function attachFile {
 ## Usage: attachTextFromFile note-id text-file
 #---
 function attachTextFromFile {
-	echo "Add text from `basename "$2"`"
-	local ORIG_BODY=`joplin cat "$1" | tail -n +2`
+	echo "$LOG_PREFIX Add text from `basename "$2"`"
 	local TXT=`cat "$2"`
-	joplin set "$1" body "`echo -e "${ORIG_BODY}\n${TXT}"`"
+    appendToBody "$1" "$TXT"
 }
 
 #---
-## Usage: addPdfThumbnails note-id pdf-file
+## Usage: addPdfThumbnails note-id pdf-file maxThumbnails
 #---
 function addPdfThumbnails {
+
+    if [ $3 == 0 ]; then
+        echo "$LOG_PREFIX MAX_THUMBNAILS value is 0 - skipping generation of PDF thumbnails"
+        exit
+    fi
+    
     local TEMP_DIR=`mktemp -d`
-	pdftoppm -scale-to 300 -png "$2" "$TEMP_DIR/thumb"
+	pdftoppm -scale-to 300 -png -l $3 "$2" "$TEMP_DIR/thumb"
 	find "$TEMP_DIR" -type f -name "thumb-*.png" -print0 | sort -z | while read -d $'\0' T
 	do
-		echo "Add pdf thumbnail: $T"
+		echo "$LOG_PREFIX Add pdf thumbnail: $T"
 		joplin attach "$1" "$T"
 		rm "$T"
 	done
@@ -143,29 +148,22 @@ function addPdfThumbnails {
 }
 
 #---
-## Usage: addPdfThumbnails note-id
-#---
-function addLastImageAsLink {
-	echo "Add explicit image link"
-	local OLD_BODY=`joplin cat "$1" | tail -n +2`
-	local LAST_LINE=`echo "$OLD_BODY" | tail -n 1`
-	local LINK=`echo "$LAST_LINE" | cut -c 2-999`
-	joplin set "$1" body "`echo -e "${OLD_BODY}\n${LINK}\n"`"
-}
-
-#---
-## Usage: addAttachmentFromFile note-id file
+## Usage: addAttachmentFromFile note-id file maxThumbnails
 #---
 function addAttachmentFromFile {
+    
     local T=`determineMailPartType "$2"`
+    local MAX_THUMBNAILS="$3"
+
     if [[ "$T" == "TXT" ]]; then
         attachTextFromFile "$1" "$2"
     elif [[ "$T" == "PDF" ]] ; then
-        addPdfThumbnails "$1" "$2"
+        addPdfThumbnails "$1" "$2" $MAX_THUMBNAILS
+        appendToBody "$1" "\r\n\r\n"
         attachFile "$1" "$2"
     elif [[ "$T" == "IMG" ]] ; then
         attachFile "$1" "$2"
-        addLastImageAsLink "$1"
+        #addLastImageAsLink "$1"
     elif [[ "$T" == "UNKNOWN" ]] ; then
         attachFile "$1" "$2"
     else
@@ -174,11 +172,11 @@ function addAttachmentFromFile {
 }
 
 #---
-## Usage: addAttachmentsFromFileParts note-id mail-parts-dir
+## Usage: addAttachmentsFromFileParts note-id mail-parts-dir maxThumbnails
 #---
 function addAttachmentsFromFileParts {
     find "$2" -type f -print0 | sort -z | while read -d $'\0' F; do
-        addAttachmentFromFile "$1" "$F"
+        addAttachmentFromFile "$1" "$F" $3
     done
 }
 
@@ -186,20 +184,18 @@ function addAttachmentsFromFileParts {
 ## Usage: addPdfFulltext note-id pdf-file
 #---
 function addPdfFulltext {
-	echo "Add pdf fulltext for `basename "$2"`"
-	local ORIG_BODY=`joplin cat "$1" | tail -n +2`
+	echo "$LOG_PREFIX Add pdf fulltext for `basename "$2"`"
 	local TXT=`pdftotext -raw -nopgbrk "$2" -`
-	joplin set "$1" body "`echo -e "${ORIG_BODY}\n\n---\n${TXT}"`"
+	appendToBody "$1" "$TXT"
 }
 
 #---
 ## Usage: addImageFulltext note-id image-file
 #---
 function addImageFulltext {
-	echo "Add image fulltext for `basename "$2"`"
-	local ORIG_BODY=`joplin cat "$1" | tail -n +2`
-	local TXT=`tesseract -l deu+eng "$2" -`
-	joplin set "$1" body "`echo -e "${ORIG_BODY}\n\n---\n${TXT}"`"
+	echo "$LOG_PREFIX Add image fulltext for `basename "$2"`"
+	local TXT=`tesseract -l eng "$2" -`
+	appendToBody "$1" "$TXT"
 }
 
 #---
@@ -232,15 +228,22 @@ function addFulltextFromFileParts {
 function setCreationDate {
 	if [[ "$2" != "" ]]; then
 		local DATINT=`date -jf "%Y-%m-%d %H.%M.%S" "$2" +%s`
-   		echo "Set creation date $2 (${DATINT}000)"
+   		echo "$LOG_PREFIX Set creation date $2 (${DATINT}000)"
 		joplin set "$1" user_created_time ${DATINT}000
 	fi
 }
 
+#---
+## Usage: appendToBody note-id content
+## To avoid issues with overlong note contents maxing out buffer, we use a proxy editor which appends our new content to the temporary md file that Joplin passes it 
+#---
+function appendToBody {
+    echo -e "\n\n---\n$2" > $TEMP_APPEND_FILE
+    joplin edit $1
+}
 
 
-
-## Usage: addNewNoteFromMailFile mail-file
+## Usage: addNewNoteFromMailFile mail-file [maxThumbnails]
 function addNewNoteFromMailFile {
 
     local FILE="$1"
@@ -250,23 +253,28 @@ function addNewNoteFromMailFile {
     local TAGS=`getTagsFromSubject "$SUBJECT"`
     local NOTEBOOK=`getNotebookFromSubject "$SUBJECT" "$DEFAULT_NOTEBOOK"`
 
+    local MAX_THUMBNAILS="$2"
+    if [[ "${MAX_THUMBNAILS}x" == "x" ]] ; then
+        MAX_THUMBNAILS=100
+    fi
+
     switchToNotebook "${NOTEBOOK}"
-    echo "Create new note with name '${NOTE_NAME}' in '${NOTEBOOK}'"
+    echo "$LOG_PREFIX Create new note with name '${NOTE_NAME}' in '${NOTEBOOK}'"
     local NOTE_ID=`createNewNote "${NOTE_NAME}"`
-    echo "New note created - ID is: $NOTE_ID"
+    echo "$LOG_PREFIX New note created - ID is: $NOTE_ID"
 
     setNoteTitle "$NOTE_ID" "$TITLE"
     setNoteTags "$NOTE_ID" "$TAGS"
 
     local TEMP_DIR=`mktemp -d`
-    echo "Using temp dir: $TEMP_DIR"
+    echo "$LOG_PREFIX Using temp dir: $TEMP_DIR"
 
     extractMailParts "${FILE}" "${TEMP_DIR}"
     setNoteBodyFromTextParts "$NOTE_ID" "${TEMP_DIR}"
-    addAttachmentsFromFileParts "$NOTE_ID" "${TEMP_DIR}"
+    addAttachmentsFromFileParts "$NOTE_ID" "${TEMP_DIR}" $MAX_THUMBNAILS
     addFulltextFromFileParts "$NOTE_ID" "${TEMP_DIR}"
 
-    echo "Removing temp dir: $TEMP_DIR"
+    echo "$LOG_PREFIX Removing temp dir: $TEMP_DIR"
     rm -r ${TEMP_DIR}
 
 }
@@ -296,14 +304,19 @@ function getTagsFromFilename {
 
 
 
-## Usage: addNewNoteFromGenericFile notebook file
+## Usage: addNewNoteFromGenericFile notebook file [maxThumbnails]
 function addNewNoteFromGenericFile {
 
     local FILE="$2"
     local FILE_NAME=`basename "$FILE"`
 
+    local MAX_THUMBNAILS="$3"
+    if [[ "${MAX_THUMBNAILS}x" == "x" ]] ; then
+        MAX_THUMBNAILS=100
+    fi
+
     if [[ "$FILE_NAME" =~ ^\..*$ ]] ; then
-        echo "Ignore hidden file $FILE_NAME"
+        echo "$LOG_PREFIX Ignore hidden file $FILE_NAME"
         return 1
     fi
 
@@ -316,15 +329,15 @@ function addNewNoteFromGenericFile {
     local CREATION_DATE=`getCreationDateFromFilename "$FILE_NAME"`
 
     switchToNotebook "${NOTEBOOK}"
-    echo "Create new note with name '${FILE_NAME}' in '${NOTEBOOK}'"
+    echo "$LOG_PREFIX Create new note with name '${FILE_NAME}' in '${NOTEBOOK}'"
     local NOTE_ID=`createNewNote "${FILE_NAME}"`
-    echo "New note created - ID is: $NOTE_ID"
+    echo "$LOG_PREFIX New note created - ID is: $NOTE_ID"
 
     setNoteTitle "$NOTE_ID" "$TITLE"
     setNoteTags "$NOTE_ID" "$TAGS"
     setCreationDate "$NOTE_ID" "$CREATION_DATE"
 
-    addAttachmentFromFile "$NOTE_ID" "$FILE"
+    addAttachmentFromFile "$NOTE_ID" "$FILE" $MAX_THUMBNAILS
     addFulltextFromFile "$NOTE_ID" "$FILE"
 
 }
