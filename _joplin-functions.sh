@@ -104,9 +104,9 @@ function getNoteBodyFromTextParts {
 ## Usage: setNoteBodyFromTextParts note-id mail-parts-dir
 #---
 function setNoteBodyFromTextParts {
-    local BODY=`getNoteBodyFromTextParts "${2}"`
     echo "$LOG_PREFIX Setting body"
-    joplin set "$1" body "$BODY"
+    getNoteBodyFromTextParts "${2}" > $TEMP_APPEND_FILE
+    joplin edit $1
 }
 
 #---
@@ -122,8 +122,8 @@ function attachFile {
 #---
 function attachTextFromFile {
 	echo "$LOG_PREFIX Add text from `basename "$2"`"
-	local TXT=`cat "$2"`
-    appendToBody "$1" "$TXT"
+    cat "$2" > $TEMP_APPEND_FILE
+    joplin edit $1
 }
 
 #---
@@ -185,8 +185,8 @@ function addAttachmentsFromFileParts {
 #---
 function addPdfFulltext {
 	echo "$LOG_PREFIX Add pdf fulltext for `basename "$2"`"
-	local TXT=`pdftotext -raw -nopgbrk "$2" -`
-	appendToBody "$1" "$TXT"
+	pdftotext -raw -nopgbrk "$2" "$TEMP_APPEND_FILE"
+    joplin edit $1
 }
 
 #---
@@ -194,8 +194,8 @@ function addPdfFulltext {
 #---
 function addImageFulltext {
 	echo "$LOG_PREFIX Add image fulltext for `basename "$2"`"
-	local TXT=`tesseract -l eng "$2" -`
-	appendToBody "$1" "$TXT"
+	tesseract -l eng "$2" "$TEMP_APPEND_FILE"
+	joplin edit $1
 }
 
 #---
