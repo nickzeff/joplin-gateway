@@ -1,0 +1,16 @@
+defaults:
+  environment:
+    - key: PATH
+      value: /usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+  shell: /bin/bash
+  utc: false
+jobs:
+  - name: fetch-joplin-mails
+    command: /home/node/fetch-joplin-mails.sh
+    schedule: "* * * * *"
+  - name: import-files-to-joplin
+    command: /home/node/import-files-to-joplin.sh "/home/node/joplin-file-scan"
+    schedule: "* * * * *"
+  - name: expose-config
+    command: /home/node/expose-config.sh
+    schedule: "* * * * *"

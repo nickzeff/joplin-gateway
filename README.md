@@ -134,4 +134,4 @@ I will try to expand this section if required, but if you are experiencing diffi
 ## Todo
 
 - Provide better documentation
-- Slim down the image - currently way too large at >800MB!
+- Slim down the image - this is reduced slightly in latest version by using alpine... but not much
