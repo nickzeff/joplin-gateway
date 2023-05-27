@@ -5,7 +5,7 @@ if [[ "${1}x" == "x" ]] ; then
     exit 1
 fi
 
-readonly LOG_PREFIX="[import-files-to-joplin][`date`]"
+readonly LOG_PREFIX="[import-files-to-joplin]"
 
 # include functions
 readonly CURR_WD=`pwd`

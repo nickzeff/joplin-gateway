@@ -2,7 +2,7 @@
 
 # ---- Configuration ----
 readonly MAILDIR=/home/node/joplin-mailbox
-readonly LOG_PREFIX="[fetch-joplin-mails][`date`]"
+readonly LOG_PREFIX="[fetch-joplin-mails]"
 
 # include functions
 readonly CURR_WD=`pwd`
@@ -25,7 +25,7 @@ fetchMails
 
 if [ -z "$(find "$MAILDIR/new" -prune -empty 2>/dev/null)" ]; then
     lockActivate MAIL $LOCKFILE_DURATION
-    echo "`date`: Found mail to import."
+    echo "$LOG_PREFIX Found mail to import."
     NEW_MAIL=1
 fi
 
