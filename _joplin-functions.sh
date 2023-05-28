@@ -223,11 +223,13 @@ function addFulltextFromFileParts {
 
 
 #---
-## Usage: setCreationDate note-id date
+## Usage: setCreationDate note-id filename
 #---
-function setCreationDate {
+function setCreationDateFromFilename {
 	if [[ "$2" != "" ]]; then
-		local DATINT=`date -jf "%Y-%m-%d %H.%M.%S" "$2" +%s`
+		#local DATINT=`date -jf "%Y-%m-%d %H.%M.%S" "$2" +%s`
+        # Modifying original date command since not supported by version in alpine 
+        local DATINT=`date -r "$2" +%s`
    		echo "$LOG_PREFIX Set creation date $2 (${DATINT}000)"
 		joplin set "$1" user_created_time ${DATINT}000
 	fi
@@ -326,7 +328,6 @@ function addNewNoteFromGenericFile {
     if [[ "${NOTEBOOK}x" == "x" ]]; then
         NOTEBOOK="$DEFAULT_NOTEBOOK"
     fi
-    local CREATION_DATE=`getCreationDateFromFilename "$FILE_NAME"`
 
     switchToNotebook "${NOTEBOOK}"
     echo "$LOG_PREFIX Create new note with name '${FILE_NAME}' in '${NOTEBOOK}'"
@@ -335,7 +336,7 @@ function addNewNoteFromGenericFile {
 
     setNoteTitle "$NOTE_ID" "$TITLE"
     setNoteTags "$NOTE_ID" "$TAGS"
-    setCreationDate "$NOTE_ID" "$CREATION_DATE"
+    setCreationDateFromFilename "$NOTE_ID" "$FILE"
 
     addAttachmentFromFile "$NOTE_ID" "$FILE" $MAX_THUMBNAILS
     addFulltextFromFile "$NOTE_ID" "$FILE"

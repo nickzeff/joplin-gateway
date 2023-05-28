@@ -35,8 +35,8 @@ function lockIsActive {
 function lockActivate {
     local FILE="/tmp/jg-lockfile-$1"
     local DURATION=$2
-
-    date +"%Y%m%d%H%M%S" -d "+${DURATION} seconds">$FILE
+    local NOW=`date +"%Y%m%d%H%M%S"`
+    echo $((NOW + DURATION))>$FILE
 }
 
 #---

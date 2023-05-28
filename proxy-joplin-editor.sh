@@ -16,6 +16,12 @@ cd "$(dirname "$0")";
 . ./config-defaults.sh
 cd ${CURR_WD}
 
+# Append 2 x newlines ahead of new content.
+# This will prevent conflicts with the note title which takes up the first two lines
+echo >> $1
+echo >> $1
+
+# Append the content of our reserved file to the existing file, location of which was provided by Joplin
 cat $TEMP_APPEND_FILE >> $1
 
 rm $TEMP_APPEND_FILE

@@ -52,6 +52,8 @@ RUN ln -s /home/node/.config/config-defaults.sh /home/node/config-defaults.sh
 
 USER 0
 
+RUN chmod +x /home/node/proxy-joplin-editor.sh
+
 # Link joplin so can be called via single command, and expose ports which may be used for sync provider first time setup
 RUN ln -s /home/node/.npm-global/bin/joplin /usr/bin/joplin
 EXPOSE 8967
