@@ -16,6 +16,11 @@ cd "$(dirname "$0")";
 . ./config-defaults.sh
 cd ${CURR_WD}
 
+if [[ ! -f $TEMP_APPEND_FILE ]]; then
+    echo "File with content to append not found"
+    exit 1
+fi
+
 # Append 2 x newlines ahead of new content.
 # This will prevent conflicts with the note title which takes up the first two lines
 echo >> $1
