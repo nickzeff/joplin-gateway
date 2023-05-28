@@ -186,7 +186,10 @@ function addAttachmentsFromFileParts {
 function addPdfFulltext {
 	echo "$LOG_PREFIX Add pdf fulltext for `basename "$2"`"
 	pdftotext -raw -nopgbrk "$2" "$TEMP_APPEND_FILE"
-    joplin edit $1
+
+    if [[ -f $TEMP_APPEND_FILE ]]; then
+        joplin edit $1
+    fi
 }
 
 #---
@@ -195,7 +198,10 @@ function addPdfFulltext {
 function addImageFulltext {
 	echo "$LOG_PREFIX Add image fulltext for `basename "$2"`"
 	tesseract -l eng "$2" "$TEMP_APPEND_FILE"
-	joplin edit $1
+    
+    if [[ -f $TEMP_APPEND_FILE ]]; then
+        joplin edit $1
+    fi
 }
 
 #---
